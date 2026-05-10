@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pastelería - Sistema de Gestión</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { color: #333; margin-bottom: 30px; text-align: center; }
+        h2 { color: #555; margin-bottom: 20px; border-bottom: 2px solid #ff6b6b; padding-bottom: 10px; }
+        h3 { margin: 15px 0 10px 0; color: #666; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: 30px; }
+        
+        .card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        
+        form { display: flex; flex-direction: column; gap: 15px; }
+        input, select, textarea, button { padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+        button { background: #ff6b6b; color: white; cursor: pointer; border: none; transition: 0.3s; }
+        button:hover { background: #ff5252; }
+        button.success { background: #4ecdc4; }
+        button.success:hover { background: #45b7aa; }
+        button.danger { background: #ff6b6b; }
+        button.warning { background: #ffb347; }
+        button.warning:hover { background: #ff9f1a; }
+        button.info { background: #3498db; }
+        button.info:hover { background: #2980b9; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; font-weight: bold; }
+        tr:hover { background: #f8f9fa; }
+        
+        .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn-small { padding: 5px 10px; font-size: 12px; }
+        
+        .form-row { display: flex; gap: 15px; flex-wrap: wrap; }
+        .form-group { flex: 1; min-width: 200px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+        
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 30px; border-radius: 10px; max-width: 700px; width: 90%; max-height: 80%; overflow-y: auto; }
+        
+        .reporte-pastel { background: #f9f9f9; margin-bottom: 20px; padding: 15px; border-radius: 8px; border-left: 4px solid #ff6b6b; }
+        .reporte-pastel h3 { color: #ff6b6b; margin-bottom: 10px; }
+        .reporte-ingredientes { margin-top: 10px; padding-left: 20px; }
+        .reporte-ingredientes ul { margin-left: 20px; }
+        .reporte-ingredientes li { margin: 5px 0; }
+        
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+        .badge-warning { background: #ffeaa7; color: #d63031; }
+        
+        .alert { padding: 10px; border-radius: 5px; margin-bottom: 15px; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #ddd; flex-wrap: wrap; }
+        .tab { padding: 10px 20px; cursor: pointer; background: #f0f0f0; border-radius: 5px 5px 0 0; }
+        .tab.active { background: #ff6b6b; color: white; }
+        
+        .relacion-card { background: #f8f9fa; padding: 10px; margin-bottom: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        
+        @media (max-width: 768px) {
+            .grid { grid-template-columns: 1fr; }
+            .form-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="container">
+        <h1>Pastelería Dulce Encanto</h1>
+        
+        <div v-if="mensaje" :class="'alert alert-' + mensajeTipo">{{ mensaje }}</div>
+        
+        <!-- TABS -->
+        <div class="tabs">
+            <div class="tab" :class="{ active: tabActivo === 'pasteles' }" @click="tabActivo = 'pasteles'">Pasteles</div>
+            <div class="tab" :class="{ active: tabActivo === 'relaciones' }" @click="tabActivo = 'relaciones'">Asignar Ingredientes</div>
+            <div class="tab" :class="{ active: tabActivo === 'ingredientes' }" @click="tabActivo = 'ingredientes'">Ingredientes</div>
+            <div class="tab" :class="{ active: tabActivo === 'reporte' }" @click="tabActivo = 'reporte'">Reporte</div>
+        </div>
+
+         <!-- TAB: PASTELES -->
+        <div v-if="tabActivo === 'pasteles'" class="card">
+            <h2>Gestión de Pasteles</h2>
+            <button @click="abrirModalPastel()" class="success">+ Nuevo Pastel</button>
+            
+            <h3>Lista de Pasteles</h3>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr><th>ID</th><th>Nombre</th><th>Descripción</th><th>Preparado por</th><th>Fec. creación</th><th>Fec. vencimiento</th><th>Acciones</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="pastel in pasteles" :key="pastel.ID_pastel">
+                            <td>{{ pastel.ID_pastel }}</td>
+                            <td><strong>{{ pastel.Nombre }}</strong></td>
+                            <td>{{ pastel.Descripcion }}</td>
+                            <td>{{ pastel.Preparado_por }}</td>
+                            <td>{{ pastel.Fecha_creacion }}</td>
+                            <td>
+                                {{ pastel.Fecha_Vencimiento }}
+                                <span v-if="estaVencido(pastel.Fecha_Vencimiento)" class="badge badge-warning">Vencido</span>
+                            </td>
+                            <td class="action-buttons">
+                                <button @click="verIngredientesPastel(pastel)" class="btn-small info">Ver Ingredientes</button>
+                                <button @click="abrirModalPastel(pastel)" class="btn-small success">Editar</button>
+                                <button @click="eliminarPastel(pastel.ID_pastel)" class="btn-small danger">Eliminar</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- TAB: ASIGNAR INGREDIENTES -->
+        <div v-if="tabActivo === 'relaciones'" class="card">
+            <h2>Asignar Ingredientes a Pasteles</h2>
+            
+            <div class="form-row" style="margin-bottom: 20px;">
+                <div class="form-group">
+                    <label>Seleccionar Pastel</label>
+                    <select v-model="pastelSeleccionadoId" @change="cargarRelacionesPorPastel">
+                        <option :value="null">-- Seleccione un pastel --</option>
+                        <option v-for="pastel in pasteles" :value="pastel.ID_pastel">
+                            {{ pastel.Nombre }} (ID: {{ pastel.ID_pastel }})
+                        </option>
+                    </select>
+                </div>
+            </div>
+            
+            <div v-if="pastelSeleccionadoId">
+                <h3>Ingredientes actuales del pastel</h3>
+                <div v-if="relacionesPastel.length === 0" style="color:#888; padding: 20px; text-align: center;">
+                    Este pastel no tiene ingredientes asignados
+                </div>
+                <div v-for="rel in relacionesPastel" :key="rel.ID_Pastel_ingrediente" class="relacion-card">
+                    <div>
+                        <strong>{{ rel.ingrediente_nombre }}</strong><br>
+                        <small>Ingreso: {{ rel.fecha_ingreso }} | Vence: {{ rel.ingrediente_vencimiento }}</small>
+                        <span v-if="estaVencido(rel.ingrediente_vencimiento)" class="badge badge-warning">Vencido</span>
+                    </div>
+                    <button @click="eliminarRelacion(rel.ID_Pastel_ingrediente)" class="btn-small danger">Quitar</button>
+                </div>
+                
+                <h3 style="margin-top: 20px;">+ Agregar nuevo ingrediente</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Ingrediente</label>
+                        <select v-model="nuevoIngredienteId">
+                            <option :value="null">-- Seleccione un ingrediente --</option>
+                            <option v-for="ing in ingredientesDisponibles" :value="ing.ID_Ingrediente">
+                                {{ ing.Nombre }} (Vence: {{ ing.Fecha_Vencimiento }})
+                            </option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                        <button @click="agregarRelacion" class="success">+ Asignar Ingrediente</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div v-else style="color:#888; padding: 40px; text-align: center;">
+                Seleccione un pastel para ver y gestionar sus ingredientes
+            </div>
+        </div>
+        
+        <!-- TAB: INGREDIENTES -->
+        <div v-if="tabActivo === 'ingredientes'" class="card">
+            <h2>Gestión de Ingredientes</h2>
+            <form @submit.prevent="guardarIngrediente">
+                <input type="hidden" v-model="ingredienteEditando.ID_Ingrediente">
+                
+                <div class="form-group">
+                    <label>Nombre del ingrediente *</label>
+                    <input type="text" v-model="ingredienteEditando.Nombre" placeholder="Ej: Harina de trigo" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <textarea v-model="ingredienteEditando.Descripcion" placeholder="Descripción del ingrediente" rows="2"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Fecha de ingreso *</label>
+                    <input type="date" v-model="ingredienteEditando.Fecha_ingreso" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Fecha de vencimiento *</label>
+                    <input type="date" v-model="ingredienteEditando.Fecha_Vencimiento" required>
+                </div>
+    
+                
+                <div class="action-buttons">
+                    <button type="submit">{{ ingredienteEditando.ID_Ingrediente ? 'Actualizar' : 'Agregar' }} Ingrediente</button>
+                    <button type="button" @click="cancelarEdicionIngrediente" v-if="ingredienteEditando.ID_Ingrediente" class="warning">Cancelar</button>
+                </div>
+            </form>
+            
+            <h3>Lista de Ingredientes</h3>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr><th>ID</th><th>Nombre</th><th>Descripción</th><th>Fec. Ingreso</th><th>Fec. Vencimiento</th><th>Acciones</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="item in ingredientes" :key="item.ID_Ingrediente">
+                            <td>{{ item.ID_Ingrediente }}</td>
+                            <td><strong>{{ item.Nombre }}</strong></td>
+                            <td>{{ item.Descripcion }}</td>
+                            <td>{{ item.Fecha_ingreso }}</td>
+                            <td>
+                                {{ item.Fecha_Vencimiento }}
+                                <span v-if="estaVencido(item.Fecha_Vencimiento)" class="badge badge-warning">Vencido</span>
+                            </td>
+                            <td class="action-buttons">
+                                <button @click="editarIngrediente(item)" class="btn-small success">Editar</button>
+                                <button @click="eliminarIngrediente(item.ID_Ingrediente)" class="btn-small danger">Eliminar</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+       
+        
+        <!-- TAB: REPORTE -->
+        <div v-if="tabActivo === 'reporte'" class="card">
+            <h2> Reporte de Pasteles con Ingredientes</h2>
+            <button @click="cargarReporte" class="success">Actualizar Reporte</button>
+            
+            <div v-if="reporte.length === 0" style="text-align:center; padding:40px; color:#888;">
+                No hay pasteles registrados
+            </div>
+            
+            <div v-for="pastel in reporte" :key="pastel.id" class="reporte-pastel">
+                <h3>{{ pastel.nombre }}</h3>
+                <p><strong>Descripción:</strong> {{ pastel.descripcion || 'Sin descripción' }}</p>
+                <p><strong>Preparado por:</strong> {{ pastel.preparado_por }}</p>
+                <p><strong>Fecha creación:</strong> {{ pastel.fecha_creacion }} | 
+                   <strong>Vence:</strong> {{ pastel.fecha_vencimiento }}
+                   <span v-if="estaVencido(pastel.fecha_vencimiento)" class="badge badge-warning">Vencido</span>
+                </p>
+                
+                <div class="reporte-ingredientes">
+                    <strong>Ingredientes:</strong>
+                    <ul v-if="pastel.ingredientes && pastel.ingredientes.length">
+                        <li v-for="ing in pastel.ingredientes" :key="ing.id">
+                            <strong>{{ ing.nombre }}</strong> - {{ ing.descripcion || 'Sin descripción' }}
+                            <br><small>Ingreso: {{ ing.fecha_ingreso }} | Vence: {{ ing.fecha_vencimiento }}</small>
+                            <span v-if="estaVencido(ing.fecha_vencimiento)" class="badge badge-warning">Vencido</span>
+                        </li>
+                    </ul>
+                    <p v-else style="color:#888;">No tiene ingredientes registrados</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL PARA PASTEL -->
+    <div class="modal" v-if="modalPastelVisible" @click.self="cerrarModalPastel">
+        <div class="modal-content">
+            <h2>{{ pastelForm.ID_pastel ? ' Editar Pastel' : '+ Nuevo Pastel' }}</h2>
+            
+            <form @submit.prevent="guardarPastel">
+                <div class="form-group">
+                    <label>Nombre del pastel *</label>
+                    <input type="text" v-model="pastelForm.Nombre" placeholder="Ej: Pastel de Chocolate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Descripción</label>
+                    <textarea v-model="pastelForm.Descripcion" placeholder="Descripción del pastel" rows="2"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Preparado por *</label>
+                    <input type="text" v-model="pastelForm.Preparado_por" placeholder="Nombre del chef" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Fecha de creación *</label>
+                        <input type="date" v-model="pastelForm.Fecha_creacion" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha de vencimiento *</label>
+                        <input type="date" v-model="pastelForm.Fecha_Vencimiento" required>
+                    </div>
+                </div>
+                
+                <div class="action-buttons" style="margin-top: 20px;">
+                    <button type="submit">Guardar Pastel</button>
+                    <button type="button" @click="cerrarModalPastel" class="warning">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- MODAL PARA VER INGREDIENTES DEL PASTEL -->
+    <div class="modal" v-if="modalIngredientesVisible" @click.self="cerrarModalIngredientes">
+        <div class="modal-content">
+            <h2>Ingredientes de: {{ pastelSeleccionadoNombre }}</h2>
+            
+            <div v-if="ingredientesPastelModal.length === 0" style="color:#888; padding: 20px; text-align: center;">
+                Este pastel no tiene ingredientes asignados
+            </div>
+            
+            <div v-for="rel in ingredientesPastelModal" :key="rel.ID_Pastel_ingrediente" class="relacion-card">
+                <div>
+                    <strong>{{ rel.ingrediente_nombre }}</strong><br>
+                    <small>{{ rel.ingrediente_descripcion || 'Sin descripción' }}</small><br>
+                    <small>Ingreso: {{ rel.fecha_ingreso }} | Vence: {{ rel.ingrediente_vencimiento }}</small>
+                    <span v-if="estaVencido(rel.ingrediente_vencimiento)" class="badge badge-warning">Vencido</span>
+                </div>
+            </div>
+            
+            <div class="action-buttons" style="margin-top: 20px;">
+                <button @click="cerrarModalIngredientes" class="warning">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+new Vue({
+    el: '#app',
+    data: {
+        tabActivo: 'pasteles',
+        
+        // Ingredientes
+        ingredientes: [],
+        ingredienteEditando: {
+            ID_Ingrediente: null,
+            Nombre: '',
+            Descripcion: '',
+            Fecha_ingreso: '',
+            Fecha_Vencimiento: ''
+        },
+        
+        // Pasteles
+        pasteles: [],
+        modalPastelVisible: false,
+        pastelForm: {
+            ID_pastel: null,
+            Nombre: '',
+            Descripcion: '',
+            Preparado_por: '',
+            Fecha_creacion: '',
+            Fecha_Vencimiento: ''
+        },
+        
+        // Relaciones
+        pastelSeleccionadoId: null,
+        relacionesPastel: [],
+        nuevoIngredienteId: null,
+        
+        // Modal ingredientes
+        modalIngredientesVisible: false,
+        pastelSeleccionadoNombre: '',
+        ingredientesPastelModal: [],
+        
+        // Reporte
+        reporte: [],
+        
+        // UI
+        mensaje: '',
+        mensajeTipo: 'success'
+    },
+    
+    computed: {
+        ingredientesDisponibles() {
+            if (!this.relacionesPastel || !this.ingredientes) return this.ingredientes || [];
+            const idsAsignados = this.relacionesPastel.map(r => r.ID_Ingrediente);
+            return this.ingredientes.filter(ing => !idsAsignados.includes(ing.ID_Ingrediente));
+        }
+    },
+    
+    mounted() {
+        this.cargarTodo();
+    },
+    
+    methods: {
+        mostrarMensaje(texto, tipo) {
+            this.mensaje = texto;
+            this.mensajeTipo = tipo;
+            setTimeout(() => { this.mensaje = ''; }, 3000);
+        },
+        
+        estaVencido(fecha) {
+            if (!fecha) return false;
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+            const fechaVenc = new Date(fecha);
+            return fechaVenc < hoy;
+        },
+        
+        async cargarTodo() {
+            await this.cargarIngredientes();
+            await this.cargarPasteles();
+            await this.cargarReporte();
+        },
+        
+        // ==================== INGREDIENTES ====================
+        async cargarIngredientes() {
+            try {
+                const res = await axios.get('api/ingredientes.php');
+                this.ingredientes = res.data || [];
+            } catch(e) {
+                this.mostrarMensaje('Error al cargar ingredientes: ' + e.message, 'error');
+            }
+        },
+        
+        async guardarIngrediente() {
+            try {
+                if(this.ingredienteEditando.ID_Ingrediente) {
+                    await axios.put('api/ingredientes.php', this.ingredienteEditando);
+                    this.mostrarMensaje('Ingrediente actualizado', 'success');
+                } else {
+                    await axios.post('api/ingredientes.php', this.ingredienteEditando);
+                    this.mostrarMensaje('Ingrediente agregado', 'success');
+                }
+                await this.cargarIngredientes();
+                this.cancelarEdicionIngrediente();
+            } catch(e) {
+                this.mostrarMensaje('Error al guardar ingrediente: ' + e.message, 'error');
+            }
+        },
+        
+        editarIngrediente(item) {
+            this.ingredienteEditando = { ...item };
+        },
+        
+        cancelarEdicionIngrediente() {
+            this.ingredienteEditando = {
+                ID_Ingrediente: null,
+                Nombre: '',
+                Descripcion: '',
+                Fecha_ingreso: '',
+                Fecha_Vencimiento: ''
+            };
+        },
+        
+        async eliminarIngrediente(id) {
+            if(confirm('¿Eliminar este ingrediente?')) {
+                try {
+                    await axios.delete('api/ingredientes.php', { data: { id } });
+                    this.mostrarMensaje('Ingrediente eliminado', 'success');
+                    await this.cargarTodo();
+                    if(this.pastelSeleccionadoId) this.cargarRelacionesPorPastel();
+                } catch(e) {
+                    this.mostrarMensaje('Error al eliminar ingrediente', 'error');
+                }
+            }
+        },
+        
+        // ==================== PASTELES ====================
+        async cargarPasteles() {
+            try {
+                const res = await axios.get('api/pasteles.php');
+                this.pasteles = res.data || [];
+            } catch(e) {
+                this.mostrarMensaje('Error al cargar pasteles: ' + e.message, 'error');
+            }
+        },
+        
+        abrirModalPastel(pastel = null) {
+            if(pastel) {
+                this.pastelForm = { ...pastel };
+            } else {
+                const hoy = new Date().toISOString().split('T')[0];
+                const dentroSemana = new Date();
+                dentroSemana.setDate(dentroSemana.getDate() + 7);
+                this.pastelForm = {
+                    ID_pastel: null,
+                    Nombre: '',
+                    Descripcion: '',
+                    Preparado_por: '',
+                    Fecha_creacion: hoy,
+                    Fecha_Vencimiento: dentroSemana.toISOString().split('T')[0]
+                };
+            }
+            this.modalPastelVisible = true;
+        },
+        
+        async guardarPastel() {
+            try {
+                if(this.pastelForm.ID_pastel) {
+                    await axios.put('api/pasteles.php', this.pastelForm);
+                    this.mostrarMensaje('Pastel actualizado', 'success');
+                } else {
+                    await axios.post('api/pasteles.php', this.pastelForm);
+                    this.mostrarMensaje('Pastel creado', 'success');
+                }
+                this.cerrarModalPastel();
+                await this.cargarPasteles();
+                await this.cargarReporte();
+            } catch(e) {
+                this.mostrarMensaje('Error al guardar pastel: ' + e.message, 'error');
+            }
+        },
+        
+        async eliminarPastel(id) {
+            if(confirm('¿Eliminar este pastel?')) {
+                try {
+                    await axios.delete('api/pasteles.php', { data: { id } });
+                    this.mostrarMensaje('Pastel eliminado', 'success');
+                    await this.cargarPasteles();
+                    await this.cargarReporte();
+                    if(this.pastelSeleccionadoId === id) {
+                        this.pastelSeleccionadoId = null;
+                        this.relacionesPastel = [];
+                    }
+                } catch(e) {
+                    this.mostrarMensaje('Error al eliminar pastel', 'error');
+                }
+            }
+        },
+        
+        cerrarModalPastel() {
+            this.modalPastelVisible = false;
+        },
+        
+        // ==================== RELACIONES ====================
+        async cargarRelacionesPorPastel() {
+            if(!this.pastelSeleccionadoId) {
+                this.relacionesPastel = [];
+                return;
+            }
+            
+            try {
+                const res = await axios.get(`api/pastel_ingredientes.php?pastel_id=${this.pastelSeleccionadoId}`);
+                this.relacionesPastel = res.data || [];
+                this.nuevoIngredienteId = null;
+            } catch(e) {
+                this.mostrarMensaje('Error al cargar relaciones: ' + e.message, 'error');
+            }
+        },
+        
+        async agregarRelacion() {
+            if(!this.pastelSeleccionadoId || !this.nuevoIngredienteId) {
+                this.mostrarMensaje('Seleccione un pastel y un ingrediente', 'error');
+                return;
+            }
+            
+            try {
+                await axios.post('api/pastel_ingredientes.php', {
+                    ID_pastel: this.pastelSeleccionadoId,
+                    ID_Ingrediente: this.nuevoIngredienteId
+                });
+                this.mostrarMensaje('Ingrediente asignado correctamente', 'success');
+                await this.cargarRelacionesPorPastel();
+                await this.cargarReporte();
+            } catch(e) {
+                const errorMsg = e.response?.data?.error || 'Error al asignar ingrediente';
+                this.mostrarMensaje(errorMsg, 'error');
+            }
+        },
+        
+        async eliminarRelacion(idRelacion) {
+            if(confirm('¿Quitar este ingrediente del pastel?')) {
+                try {
+                    await axios.delete('api/pastel_ingredientes.php', { data: { ID_Pastel_ingrediente: idRelacion } });
+                    this.mostrarMensaje('Ingrediente quitado del pastel', 'success');
+                    await this.cargarRelacionesPorPastel();
+                    await this.cargarReporte();
+                } catch(e) {
+                    this.mostrarMensaje('Error al quitar ingrediente', 'error');
+                }
+            }
+        },
+        
+        // ==================== VER INGREDIENTES ====================
+        async verIngredientesPastel(pastel) {
+            this.pastelSeleccionadoNombre = pastel.Nombre;
+            try {
+                const res = await axios.get(`api/pastel_ingredientes.php?pastel_id=${pastel.ID_pastel}`);
+                this.ingredientesPastelModal = res.data || [];
+                this.modalIngredientesVisible = true;
+            } catch(e) {
+                this.mostrarMensaje('Error al cargar ingredientes del pastel', 'error');
+            }
+        },
+        
+        cerrarModalIngredientes() {
+            this.modalIngredientesVisible = false;
+            this.ingredientesPastelModal = [];
+            this.pastelSeleccionadoNombre = '';
+        },
+        
+        // ==================== REPORTE ====================
+        async cargarReporte() {
+            try {
+                const res = await axios.get('api/reporte.php');
+                this.reporte = res.data || [];
+            } catch(e) {
+                this.mostrarMensaje('Error al cargar reporte: ' + e.message, 'error');
+            }
+        }
+    },
+    
+    watch: {
+        pastelSeleccionadoId: function() {
+            this.cargarRelacionesPorPastel();
+        }
+    }
+});
+</script>
+</body>
+</html>
