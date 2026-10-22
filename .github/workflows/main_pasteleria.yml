@@ -20,6 +20,8 @@ jobs:
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'Gestión-de-Pastelería'
+          # Usamos el nombre de host interno, sin acentos.
+          app-name: 'xn--gestin-de-pastelera-b6c0bha0enejcpg7-0kd8s.mexicocentral-01.azurewebsites.net'
+          slot-name: 'Production'
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: .
